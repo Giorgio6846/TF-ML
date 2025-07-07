@@ -1,3 +1,4 @@
 requests
 torch
 pandas
+lightning
