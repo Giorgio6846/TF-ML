@@ -1,4 +1,6 @@
 */__pycache__
+__pycache__
+code/lightning_logs
 
 .DS_Store
 .env

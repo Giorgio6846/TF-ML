@@ -2,3 +2,5 @@ requests
 torch
 pandas
 lightning
+scikit-learn
+optuna
