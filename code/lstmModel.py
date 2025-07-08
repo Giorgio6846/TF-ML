@@ -9,9 +9,10 @@ class LSTMModel(L.LightningModule):
                  dropout=0.1):
         super(LSTMModel, self).__init__()
         self.lstm = nn.LSTM(input_size, hidden_size, num_layers, dropout=dropout, batch_first=True)
-        self.fc   = nn.Linear(hidden_size, 1)
+        self.fc   = nn.Linear(hidden_size, 7)
         
     def forward(self, x):
         x, _ = self.lstm(x)
-        x = self.fc(x[:, -1, :])
+        x = x[:, -1, :]
+        x = self.fc(x)
         return x

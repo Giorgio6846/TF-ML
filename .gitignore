@@ -1,6 +1,8 @@
 */__pycache__
 __pycache__
+
 code/lightning_logs
+models/checkpoints
 
 .DS_Store
 .env
