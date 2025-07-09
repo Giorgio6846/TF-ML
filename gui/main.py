@@ -1,4 +1,5 @@
 import platform
+import torch
 # —————————————————————————————————————————————
 # Apple Silicon (MPS) Option
 # —————————————————————————————————————————————
@@ -11,19 +12,7 @@ else:
     device = torch.device("cpu")
 
 """
-Streamlit App for 3-Day Coin Price Forecasts
-------------------------------------------------
-This app loads trained LSTM models for selected coins, performs inference for the next 72 hours, and compares the predictions to real price data fetched from CoinGecko (using only the requests library, with caching).
-
-Key Functions:
-- load_selected_coins: Loads the list of coins to forecast.
-- load_scaler_for_coin: Loads the MinMaxScaler for each coin.
-- load_model_for_coin: Loads the trained PyTorch Lightning model for each coin.
-- get_last_sequence: Prepares the last sequence of features for inference from local JSON data.
-- forecast_and_unscale: Runs iterative forecasting and inverse-scales the predictions.
-- fetch_real_prices: Fetches and processes real hourly prices from CoinGecko, with disk caching.
-
-The UI displays a summary table of daily means and a detailed hourly comparison chart for each coin.
+Prediccion de precios de criptomonedas con Streamlit y CoinGecko
 """
 # app.py
 
@@ -257,8 +246,14 @@ def fetch_real_prices(name: str, days: int = 3) -> np.ndarray:
 st.set_page_config(page_title="3-Day Coin Forecasts", layout="wide")
 st.title("3-Day Price Forecasts vs. CoinGecko (requests only)")
 
+hyperparams = {'hidden_size': 46,
+ 'num_layers': 2,
+ 'lr': 0.006910149762728569,
+ 'dropout': 0.13197445494029517,
+ 'sequence_legth': 24}
+
 # Load all resources once
-models  = {c: load_model_for_coin(c)  for c in COINS}
+models  = {c: load_model_for_coin(c, hidden_size=hyperparams["hidden_size"], num_layers=hyperparams["num_layers"], lr=hyperparams["lr"], dropout=hyperparams["dropout"])  for c in COINS}
 scalers = {c: load_scaler_for_coin(c) for c in COINS}
 
 
@@ -266,25 +261,20 @@ st.subheader("Forecast Summary for Selected Coins")
 rows = []
 for coin in COINS:
     X0 = get_last_sequence(coin)
-    preds, caps, vols = forecast_and_unscale(models[coin], scalers[coin], X0, steps=72)
+    preds, _, _ = forecast_and_unscale(models[coin], scalers[coin], X0, steps=72)
     actual = fetch_real_prices(coin, days=3)
-    # For now, actual only has price. If you want to fetch actual cap/vol, you need to update fetch_real_prices.
     pred_daily = preds.reshape(3,24).mean(axis=1)
-    cap_daily = caps.reshape(3,24).mean(axis=1)
-    vol_daily = vols.reshape(3,24).mean(axis=1)
     actual_daily = actual.reshape(3,24).mean(axis=1) if len(actual) == 72 else [np.nan]*3
 
     # Percentage difference: (pred - actual) / actual * 100
     diff_daily = [((p - a) / a * 100) if (not np.isnan(a) and a != 0) else np.nan for p, a in zip(pred_daily, actual_daily)]
-    rows.append([coin, *pred_daily, *cap_daily, *vol_daily, *actual_daily, *diff_daily])
+    rows.append([coin, *pred_daily, *actual_daily, *diff_daily])
 
 summary_df = pd.DataFrame(
     rows,
     columns=[
         "Coin",
         "Pred Price Day+1","Pred Price Day+2","Pred Price Day+3",
-        "Pred Cap Day+1","Pred Cap Day+2","Pred Cap Day+3",
-        "Pred Vol Day+1","Pred Vol Day+2","Pred Vol Day+3",
         "Actual Price Day+1","Actual Price Day+2","Actual Price Day+3",
         "Diff Price Day+1","Diff Price Day+2","Diff Price Day+3"
     ]
@@ -298,7 +288,7 @@ with col1:
     selected = st.selectbox("Select a coin", COINS)
 
 with col2:
-    preds, caps, vols = forecast_and_unscale(
+    preds, _, _ = forecast_and_unscale(
         models[selected],
         scalers[selected],
         get_last_sequence(selected),
@@ -306,21 +296,32 @@ with col2:
         device=device
     )
     actual = fetch_real_prices(selected, days=3)
-    # Build DataFrame for hourly comparison
+    # Build DataFrame for hourly comparison with datetime index, aligned to actual data
     if len(actual) == 72:
+        # Get the last 72 timestamps from the CoinGecko actual data (not local JSON)
+        # Fetch the timestamps from the CoinGecko cache file
+        cache_file = os.path.join(CACHE_DIR, f"{selected}_3_{datetime.utcnow().strftime('%Y%m%dT%H')}.json")
+        if os.path.exists(cache_file):
+            with open(cache_file, "r") as f:
+                prices = json.load(f)
+            # Use the last 72 timestamps from the actual data
+            ts = [item[0] for item in prices[-72:]]
+            dt_index = pd.to_datetime(ts, unit="ms")
+        else:
+            # fallback: use a range index
+            dt_index = pd.RangeIndex(72)
         # Percentage difference: (pred - actual) / actual * 100
         diff = np.where(actual != 0, (preds - actual) / actual * 100, np.nan)
     else:
+        dt_index = pd.RangeIndex(72)
         diff = [np.nan]*72
     comp_df = pd.DataFrame({
         "Predicted Price": preds,
-        "Predicted Cap": caps,
-        "Predicted Volume": vols,
         "Actual Price": actual if len(actual) == 72 else [np.nan]*72,
-    })
+    }, index=dt_index)
     diff_df = pd.DataFrame({
         "Diff Price (%)": diff
-    })
+    }, index=dt_index)
     st.line_chart(comp_df, use_container_width=True)
     st.markdown("**Percentage Difference (Price, Predicted vs. Actual)**")
     st.line_chart(diff_df, use_container_width=True)

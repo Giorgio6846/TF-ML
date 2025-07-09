@@ -2,7 +2,7 @@ import lightning as L
 import torch.nn.functional as F
 import torch
 
-from lstmModel import LSTMModel
+from .lstmModel import LSTMModel
 
 class LitTrainer(L.LightningModule):
     def __init__(self, hidden_size, num_layers, dropout, input_size=7, lr=1e-3):
