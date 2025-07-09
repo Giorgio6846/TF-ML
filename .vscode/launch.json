@@ -1,0 +1,19 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+      {
+        "name": "Python: Streamlit Debug",
+        "type": "debugpy",
+        "request": "launch",
+        "module": "streamlit",
+        "args": [
+          "run",
+          "gui/main.py"
+        ],
+        "cwd": "${workspaceFolder}",
+        "envFile": "${workspaceFolder}/.env",
+        "console": "integratedTerminal"
+      }
+    ]
+  }
+  

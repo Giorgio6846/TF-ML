@@ -26,7 +26,7 @@ class LitPriceData(L.LightningDataModule):
         self.val_dataset = PriceDataset(self.X_val, self.y_val)
 
     def train_dataloader(self):
-        return DataLoader(self.train_dataset, batch_size=self.batch_size, shuffle=True)
+        return DataLoader(self.train_dataset, batch_size=self.batch_size, shuffle=True, num_workers=8)
 
     def val_dataloader(self):
-        return DataLoader(self.val_dataset, batch_size=self.batch_size)
+        return DataLoader(self.val_dataset, batch_size=self.batch_size, num_workers=8)

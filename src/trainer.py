@@ -5,7 +5,7 @@ import torch
 from lstmModel import LSTMModel
 
 class LitTrainer(L.LightningModule):
-    def __init__(self, hidden_size, num_layers, dropout, input_size=5, lr=1e-3):
+    def __init__(self, hidden_size, num_layers, dropout, input_size=7, lr=1e-3):
         super().__init__()
         self.model = LSTMModel(input_size=input_size, hidden_size=hidden_size, num_layers=num_layers, dropout=dropout)
         self.lr = lr

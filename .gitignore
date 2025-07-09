@@ -1,7 +1,8 @@
 */__pycache__
 __pycache__
+*/lightning_logs
+lightning_logs
 
-code/lightning_logs
 models/checkpoints
 
 .DS_Store
