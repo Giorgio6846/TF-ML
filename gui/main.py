@@ -1,3 +1,14 @@
+import platform
+# —————————————————————————————————————————————
+# Apple Silicon (MPS) Option
+# —————————————————————————————————————————————
+use_mps = False
+if platform.system() == "Darwin" and torch.backends.mps.is_available():
+    st.sidebar.markdown("### Inference Device")
+    use_mps = st.sidebar.checkbox("Use Apple Neural Engine (MPS, if available)", value=False)
+    device = torch.device("mps" if use_mps else "cpu")
+else:
+    device = torch.device("cpu")
 
 """
 Streamlit App for 3-Day Coin Price Forecasts
@@ -156,19 +167,21 @@ def forecast_and_unscale(
     model: LitTrainer,
     scaler: joblib,
     X0: torch.Tensor,
-    steps: int = 72
+    steps: int = 72,
+    device: torch.device = torch.device("cpu")
 ) -> np.ndarray:
     """
     Perform iterative forecasting for a given model and input sequence, then inverse-scale the predictions.
     Returns a numpy array of real-valued price predictions.
     """
     norm_preds = []
-    X = X0.clone()
+    X = X0.clone().to(device)
+    model = model.to(device)
     cap_preds = []
     vol_preds = []
     for _ in range(steps):
         with torch.no_grad():
-            y_pred = model.model(X).cpu().numpy()
+            y_pred = model.model(X).to("cpu").numpy()
             # y_pred shape: (1, output_size) or (1, N)
             if y_pred.ndim == 2:
                 y_price = y_pred[0, 0]
@@ -188,8 +201,8 @@ def forecast_and_unscale(
         new_row[0] = y_price
         new_row[1] = y_cap
         new_row[2] = y_vol
-        arr = np.concatenate([X.numpy()[0,1:], new_row[None]], axis=0)
-        X = torch.tensor(arr[None], dtype=torch.float32)
+        arr = np.concatenate([X.to("cpu").numpy()[0,1:], new_row[None]], axis=0)
+        X = torch.tensor(arr[None], dtype=torch.float32).to(device)
 
     norm_preds = np.array(norm_preds)  # shape (steps,)
     cap_preds = np.array(cap_preds)
@@ -289,7 +302,8 @@ with col2:
         models[selected],
         scalers[selected],
         get_last_sequence(selected),
-        steps=72
+        steps=72,
+        device=device
     )
     actual = fetch_real_prices(selected, days=3)
     # Build DataFrame for hourly comparison
