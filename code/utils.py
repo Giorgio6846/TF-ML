@@ -3,6 +3,8 @@ import pandas as pd
 import json
 import numpy as np
 from sklearn.preprocessing import MinMaxScaler
+import joblib
+import os
 
 def priceDataframe(name):
     jsonPath = f"../data/info_{name}.json"
@@ -42,12 +44,15 @@ def priceDataframe(name):
     scaler = MinMaxScaler()
     df[["price", "market_caps", "volume"]] = scaler.fit_transform(df[["price", "market_caps", "volume"]])
     
+    os.makedirs("../data/scaled/", exist_ok=True)
+    joblib.dump(scaler, f"../data/scaled/info_{name}.joblib")
+    
     return df
 
 def splitData(name, sequence_length=72, prediction_offset=120):
     df = priceDataframe(name)
 
-    feature_cols = ["price", "market_caps", "volume", 
+    feature_cols = ["price", 
                     "hour_cos", "hour_sin", 
                     "dayweek_cos", "dayweek_sin"]
 
